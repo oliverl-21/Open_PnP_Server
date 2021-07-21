@@ -5,6 +5,7 @@ from flask import Flask, request, send_from_directory, render_template, Response
 from pathlib import Path
 import sys
 sys.path.append('./configs')
+from vars import *
 
 import requests
 import xmltodict

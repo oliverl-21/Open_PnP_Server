@@ -1,4 +1,5 @@
 *.cfg
+__pycache__
 
 # exclude
 !.gitkeep

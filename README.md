@@ -5,6 +5,8 @@ Credits to :
 - https://github.com/pmeffre/ciscopnp
 
 ## Execution
+change the variable HTTP Server in ./configs/vars.py to your Servers IP:Port
+
 ```shell
 pip install -r requirements.txt
 python3 main.py
