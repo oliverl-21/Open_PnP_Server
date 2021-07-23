@@ -44,8 +44,7 @@ Describe the Dynamic Inventory part and usage with Ansible.
 
 - cat8kv
   - &#9745; IOS-XE 17.5.1
-  - &#9744; IOS-XE 17.3.4
-  - &#9744; IOS-XE 16.x
+  - &#9745; IOS-XE 17.4.2
 - cat 9200(l)
   - versions
 - cat 9300
