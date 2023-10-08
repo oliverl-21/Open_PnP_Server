@@ -20,7 +20,7 @@ def work_request(host, type="device_info"):
     url = f"http://{host}/pnp/WORK-REQUEST"
     with open(current_dir / f"{type}.xml", encoding='ascii') as f:
         data = f.read()
-    return requests.post(url, data)
+    return requests.post(url, data, timeout=3)
 
 
 def get_device_info(host):
