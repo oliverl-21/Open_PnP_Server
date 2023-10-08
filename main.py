@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
+import sys
+from pathlib import Path
+
 import re
 from flask import Flask, request, send_from_directory, render_template, Response
-from pathlib import Path
-import sys
 sys.path.append('./configs')
 from vars import *
 
@@ -90,4 +91,4 @@ def pnp_work_response():
     return Response(result_data, mimetype='text/xml')
 
 if __name__ == '__main__':
-      app.run(host='0.0.0.0', port=8080)
+    app.run(host='0.0.0.0', port=8080)
