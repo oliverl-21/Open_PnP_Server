@@ -18,7 +18,7 @@ SERIAL_NUM_RE = re.compile(r"PID:(?P<product_id>\w+(?:-\w+)*),VID:(?P<hw_version
 
 def work_request(host, type="device_info"):
     url = f"http://{host}/pnp/WORK-REQUEST"
-    with open(current_dir / f"{type}.xml") as f:
+    with open(current_dir / f"{type}.xml", encoding='ascii') as f:
         data = f.read()
     return requests.post(url, data)
 
