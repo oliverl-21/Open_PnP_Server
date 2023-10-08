@@ -3,6 +3,8 @@ on:
   push:
     paths:
       - '!.github'
+      - '*.py'
+
 jobs:
   build:
     runs-on: ubuntu-latest
