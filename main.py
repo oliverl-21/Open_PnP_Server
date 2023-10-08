@@ -73,7 +73,7 @@ def pnp_work_request():
         result_data = render_template('load_config.xml', **jinja_context)
         sys.stderr.write("Loading " + config_file + " on " + request.environ['REMOTE_ADDR'] + "\n")
         return Response(result_data, mimetype='text/xml')
-    except:
+    except Exception:
         sys.stderr.write("Unable to load " + config_file+".cfg" + " on " + request.environ['REMOTE_ADDR'] + " ("+serial_number+")\n")
         return ''
 

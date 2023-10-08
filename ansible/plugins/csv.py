@@ -1,10 +1,10 @@
+import csv
 from ansible.plugins.inventory import (
     BaseInventoryPlugin,
     Constructable,
     expand_hostname_range,
     detect_range,
 )
-import csv
 
 
 DOCUMENTATION = """
