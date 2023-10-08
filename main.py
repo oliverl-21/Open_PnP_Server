@@ -61,7 +61,7 @@ def pnp_work_request():
     udi = data['pnp']['@udi']
     udi_match = SERIAL_NUM_RE.match(udi)
     serial_number = udi_match.group('serial_number')
-    try: 
+    try:
         config_file = serial_number
         #config_file = DEVICES[serial_number]["config-filename"]
         jinja_context = {
@@ -73,10 +73,10 @@ def pnp_work_request():
         result_data = render_template('load_config.xml', **jinja_context)
         sys.stderr.write("Loading " + config_file + " on " + request.environ['REMOTE_ADDR'] + "\n")
         return Response(result_data, mimetype='text/xml')
-    except: 
+    except:
         sys.stderr.write("Unable to load " + config_file+".cfg" + " on " + request.environ['REMOTE_ADDR'] + " ("+serial_number+")\n")
         return ''
- 
+
 @app.route('/pnp/WORK-RESPONSE', methods=['POST'])
 def pnp_work_response():
     print(request.data)
