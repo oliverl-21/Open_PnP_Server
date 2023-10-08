@@ -1,5 +1,6 @@
 *.cfg
 __pycache__
+.github
 
 # exclude
 !.gitkeep
