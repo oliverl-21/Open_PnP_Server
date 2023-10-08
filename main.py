@@ -5,11 +5,11 @@ from pathlib import Path
 
 import re
 from flask import Flask, request, send_from_directory, render_template, Response
-sys.path.append('./configs')
 from vars import *
-
 import requests
 import xmltodict
+
+sys.path.append('./configs')
 
 app = Flask(__name__, template_folder="./templates")
 current_dir = Path(__file__)
