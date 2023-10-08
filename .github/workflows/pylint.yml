@@ -4,6 +4,7 @@ on:
     paths:
       - '!.github'
       - '*.py'
+      - 'requirements.txt'
 
 jobs:
   build:
