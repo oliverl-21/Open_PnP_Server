@@ -1,3 +1,9 @@
+[main]
+max-branches=14
+
+[design]
+max-locals = 20
+
 [MESSAGES CONTROL]
 
 disable=
