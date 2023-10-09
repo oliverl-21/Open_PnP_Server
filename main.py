@@ -42,7 +42,7 @@ def test_xml():
 @app.route('/')
 def root():
     src_add = request.environ.get('HTTP_X_REAL_IP', request.remote_addr)
-    print('SOURCE-ADDRESS:%s' % src_add)
+    print(f"SOURCE-ADDRESS: {src_add}")
     return 'Hello Stream!'
 
 @app.route('/configs/<path:path>')
@@ -62,7 +62,7 @@ def pnp_hello():
 
 @app.route('/pnp/WORK-REQUEST', methods=['POST'])
 def pnp_work_request():
-    src_add = request.environ.get('HTTP_X_REAL_IP', request.remote_addr)
+    # src_add = request.environ.get('HTTP_X_REAL_IP', request.remote_addr)
     data = xmltodict.parse(request.data)
     correlator_id = data['pnp']['info']['@correlator']
     udi = data['pnp']['@udi']
