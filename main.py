@@ -3,23 +3,59 @@
 import sys
 from pathlib import Path
 sys.path.append('./configs')
-
 import re
+import xmltodict, requests, socket, os, logging
 from flask import Flask, request, send_from_directory, render_template, Response
-from vars import *
-import requests
-import xmltodict
+import flask.cli
+import asyncio, argparse
+from ipaddress import ip_address
+from rich import print
 
 
+# disable default Flask logging
+logging.getLogger("werkzeug").disabled = True
+flask.cli.show_server_banner = lambda *args: None
+
+# get local IP logic
+async def get_local_ip():
+    loop = asyncio.get_event_loop()
+    transport, protocol = await loop.create_datagram_endpoint(
+        asyncio.DatagramProtocol,
+        remote_addr=('8.8.8.8', 80))
+    localip = transport.get_extra_info('sockname')[0]
+    transport.close()
+    return localip
+
+# ArgumentParser
+parser = argparse.ArgumentParser(prog='OpenPnPServer')
+parser.add_argument('-i', '--ip', type=ip_address, help='IP the Server should Listen on, Default local IP')
+parser.add_argument('-p', '--port', type=int, default='8080', help='Port the Server should Listen on, Default 8080')
+args = parser.parse_args()
+
+if not args.ip:
+    local_ip = asyncio.run(get_local_ip())
+else:
+    local_ip = args.ip
+
+local_port = str(args.port)
+
+# build var from args or local values/defaults
+HTTP_SERVER = local_ip+":"+local_port
+
+
+# we are ready
+print(f"\nServer will run on IP:{local_ip} and Port:{local_port}\n")
+
+
+# Flask
 app = Flask(__name__, template_folder="./templates")
 current_dir = Path(__file__)
 
 SERIAL_NUM_RE = re.compile(r"PID:(?P<product_id>\w+(?:-\w+)*),VID:(?P<hw_version>\w+),SN:(?P<serial_number>\w+)")
 
-print(HTTP_SERVER)
-def work_request(host, type="device_info"):
+def work_request(host, call="device_info"):
     url = f"http://{host}/pnp/WORK-REQUEST"
-    with open(current_dir / f"{type}.xml", encoding='ascii') as f:
+    with open(current_dir / f"{call}.xml", encoding='ascii') as f:
         data = f.read()
     return requests.post(url, data, timeout=3)
 
@@ -98,4 +134,5 @@ def pnp_work_response():
     return Response(result_data, mimetype='text/xml')
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
+    app.run(host='0.0.0.0', port=local_port)
+
