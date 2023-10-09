@@ -2,6 +2,7 @@
 
 import sys
 from pathlib import Path
+sys.path.append('./configs')
 
 import re
 from flask import Flask, request, send_from_directory, render_template, Response
@@ -9,13 +10,13 @@ from vars import *
 import requests
 import xmltodict
 
-sys.path.append('./configs')
 
 app = Flask(__name__, template_folder="./templates")
 current_dir = Path(__file__)
 
 SERIAL_NUM_RE = re.compile(r"PID:(?P<product_id>\w+(?:-\w+)*),VID:(?P<hw_version>\w+),SN:(?P<serial_number>\w+)")
 
+print(HTTP_SERVER)
 def work_request(host, type="device_info"):
     url = f"http://{host}/pnp/WORK-REQUEST"
     with open(current_dir / f"{type}.xml", encoding='ascii') as f:
@@ -28,7 +29,13 @@ def get_device_info(host):
 
 @app.route('/test-xml')
 def test_xml():
-    result = render_template('load_config.xml', correlator_id="123", config_filename="test.cfg", udi="123", http_server="198.18.168.3:8080")
+    jinja_context = {
+        "http_server": HTTP_SERVER,
+        "config_filename": 'test.cfg',
+        "udi": 123,
+        "correlator_id": 123
+    }
+    result = render_template('load_config.xml', **jinja_context)
     return Response(result, mimetype='text/xml')
 
 
