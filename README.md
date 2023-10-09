@@ -11,6 +11,27 @@ change the variable HTTP Server in ./configs/vars.py to your Servers IP:Port
 pip install -r requirements.txt
 python3 main.py
 ```
+## Usage:
+
+execute `main.py` this starts the PnP Server and tries to obtain the local IP of the System
+
+```sh
+./main.py
+
+```
+
+define different return IP for the PnP Requests (NAT)
+```sh
+./main.py -i 1.1.1.1
+# or
+./main.py --ip 1.1.1.1
+```
+default the Server will run on Port:8080 this can be changed
+```sh
+./main.py -p 8081
+# or
+./main.py --port 8081
+```
 
 ## How to use
 
