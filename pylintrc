@@ -1,3 +1,5 @@
+[master]
+ignore-paths=^ansible/plugins/csv.py$
 [main]
 max-branches=14
 
