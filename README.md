@@ -5,7 +5,6 @@ Credits to :
 - https://github.com/pmeffre/ciscopnp
 
 ## Execution
-change the variable HTTP Server in ./configs/vars.py to your Servers IP:Port
 
 ```shell
 pip install -r requirements.txt
@@ -28,11 +27,11 @@ default the Server will run on Port:8080 this can be changed
 
 ## How to use
 
-You have to create a config directory (./configs) which must contain:
+You have to create a config directory `(./configs)` which must contain:
 
  - "Serial Number of Switch".cfg
 
-Configure your DHCP to point a blank Device to the PnP Server via DHCP Option 43 value: 5A1D;K4;B2;I198.18.168.3;J8080
+Configure your DHCP to point a blank Device to the PnP Server via DHCP Option 43 value: `5A1D;K4;B2;I198.18.168.3;J8080`
 
 - 5: DHCP sub-option for PnP
 - A: feature-code for Active
