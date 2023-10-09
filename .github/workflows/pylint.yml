@@ -5,6 +5,7 @@ on:
       - '!.github'
       - '*.py'
       - 'requirements.txt'
+      - 'pylintrc'
 
 jobs:
   build:
