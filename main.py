@@ -11,7 +11,7 @@ import asyncio, argparse
 from ipaddress import ip_address
 from rich import print
 
-# disable default Flask logging
+# disable default Flask logging to stdout
 logging.getLogger("werkzeug").disabled = True
 flask.cli.show_server_banner = lambda *args: None
 
