@@ -4,7 +4,11 @@ import sys
 from pathlib import Path
 sys.path.append('./configs')
 import re
-import xmltodict, requests, socket, os, logging
+import socket
+import os
+import xmltodict
+import requests
+import logging
 from flask import Flask, request, send_from_directory, render_template, Response
 import flask.cli
 import asyncio, argparse
@@ -36,14 +40,14 @@ if not args.ip:
 else:
     local_ip = args.ip
 
-local_port = str(args.port)
+LOCAL_PORT = str(args.port)
 
 # build var from args or local values/defaults
-HTTP_SERVER = local_ip+":"+local_port
+HTTP_SERVER = local_ip+":"+LOCAL_PORT
 
 
 # we are ready
-print(f"\nServer will run on IP:{local_ip} and Port:{local_port}\n")
+print(f"\nServer will run on IP:{local_ip} and Port:{LOCAL_PORT}\n")
 
 
 # Flask
@@ -133,5 +137,5 @@ def pnp_work_response():
     return Response(result_data, mimetype='text/xml')
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=local_port)
+    app.run(host='0.0.0.0', port=LOCAL_PORT)
 
