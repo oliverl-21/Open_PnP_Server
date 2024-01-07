@@ -3,7 +3,7 @@
   "extends": [
     "config:recommended"
   ],
-  "Pip_requirements": {
+  "pip_requirements": {
   "fileMatch": ["(^|/)[\\w-]*requirements(-\\w+)?\\.(txt|pip)$"]
   },
   "github-actions": {
