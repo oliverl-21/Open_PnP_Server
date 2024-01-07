@@ -3,7 +3,7 @@
   "extends": [
     "config:recommended"
   ],
-  Pip_requirements: {
+  "Pip_requirements": {
   "fileMatch": ["(^|/)[\\w-]*requirements(-\\w+)?\\.(txt|pip)$"]
   }
 }
