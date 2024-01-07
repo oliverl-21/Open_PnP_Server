@@ -5,5 +5,11 @@
   ],
   "Pip_requirements": {
   "fileMatch": ["(^|/)[\\w-]*requirements(-\\w+)?\\.(txt|pip)$"]
-  }
+  },
+  "github-actions": {
+  "fileMatch": [
+    "(^|/)(workflow-templates|\\.(?:github|gitea|forgejo)/workflows)/[^/]+\\.ya?ml$",
+    "(^|/)action\\.ya?ml$"
+  ]
+}
 }
