@@ -82,7 +82,7 @@ def test_xml():
 def root():
     src_add = request.environ.get('HTTP_X_REAL_IP', request.remote_addr)
     print(f"SOURCE-ADDRESS: {src_add}")
-    return 'Hello Stream!'
+    return 'Hello!'
 
 @app.route('/configs/<path:path>')
 def serve_configs(path):
