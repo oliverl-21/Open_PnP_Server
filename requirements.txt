@@ -8,5 +8,5 @@ Jinja2==3.1.4
 MarkupSafe==3.0.2
 requests==2.32.3
 urllib3==2.2.3
-Werkzeug==3.0.4
+Werkzeug==3.0.5
 xmltodict==0.14.2
