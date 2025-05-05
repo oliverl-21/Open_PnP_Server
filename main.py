@@ -4,16 +4,18 @@ import sys
 from pathlib import Path
 
 sys.path.append("./configs")
+import argparse
+import asyncio
+import logging
+import os
 import re
 import socket
-import os
-import xmltodict
-import requests
-import logging
-from flask import Flask, request, send_from_directory, render_template, Response
-import flask.cli
-import asyncio, argparse
 from ipaddress import ip_address
+
+import flask.cli
+import requests
+import xmltodict
+from flask import Flask, Response, render_template, request, send_from_directory
 
 # disable default Flask logging to stdout
 logging.getLogger("werkzeug").disabled = True
@@ -51,7 +53,7 @@ args = parser.parse_args()
 if not args.ip:
     local_ip = asyncio.run(get_local_ip())
 else:
-    local_ip = args.ip
+    local_ip = str(args.ip)
 
 LOCAL_PORT = str(args.port)
 
