@@ -7,9 +7,7 @@ sys.path.append("./configs")
 import argparse
 import asyncio
 import logging
-import os
 import re
-import socket
 from ipaddress import ip_address
 
 import flask.cli
@@ -51,18 +49,18 @@ parser.add_argument(
 args = parser.parse_args()
 
 if not args.ip:
-    local_ip = asyncio.run(get_local_ip())
+    LOCAL_IP = asyncio.run(get_local_ip())
 else:
-    local_ip = str(args.ip)
+    LOCAL_IP = str(args.ip)
 
 LOCAL_PORT = str(args.port)
 
 # build var from args or local values/defaults
-HTTP_SERVER = local_ip + ":" + LOCAL_PORT
+HTTP_SERVER = LOCAL_IP + ":" + LOCAL_PORT
 
 
 # we are ready
-print(f"\nServer will run on IP:{local_ip} and Port:{LOCAL_PORT}\n")
+print(f"\nServer will run on IP:{LOCAL_IP} and Port:{LOCAL_PORT}\n")
 
 
 # Flask
