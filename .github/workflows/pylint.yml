@@ -1,4 +1,6 @@
 name: Pylint
+permissions:
+  contents: read
 on:
   push:
     paths:
@@ -6,7 +8,6 @@ on:
       - '*.py'
       - 'requirements.txt'
       - 'pylintrc'
-
 jobs:
   build:
     runs-on: ubuntu-latest
