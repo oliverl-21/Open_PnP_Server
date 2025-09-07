@@ -8,7 +8,7 @@ updates:
     python-packages:
       patterns:
         - "*"
-  - package-ecosyste: "github-actions"
-    directory: "/.github/"
-    schedule:
-      interval: "weekly"
+- package-ecosyste: "github-actions"
+  directory: "/.github/"
+  schedule:
+    interval: "weekly"
