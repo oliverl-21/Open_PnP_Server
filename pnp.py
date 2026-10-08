@@ -202,7 +202,7 @@ class Provisioner:
             message = parse_message(raw)
         except ValueError as exc:
             self._log_message(None, {"source_ip": source_ip}, "work-request", "reject", str(exc))
-            return {"status": 400, "body": str(exc)}
+            return {"status": 400, "body": "bad request"}
         message["source_ip"] = source_ip
         with self._lock:
             result = self._work_request(message)
@@ -214,7 +214,7 @@ class Provisioner:
             message = parse_message(raw)
         except ValueError as exc:
             self._log_message(None, {"source_ip": source_ip}, "work-response", "reject", str(exc))
-            return {"status": 400, "body": str(exc)}
+            return {"status": 400, "body": "bad request"}
         if not message["has_response"]:
             return {"status": 400, "body": "missing response element"}
         message["source_ip"] = source_ip

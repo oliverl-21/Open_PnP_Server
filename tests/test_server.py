@@ -180,6 +180,12 @@ class ServerTests(unittest.TestCase):  # pylint: disable=too-many-public-methods
         self.assertEqual(document["pnp"]["request"]["backoff"]["reason"], "unrecognized udi")
         bad = client.post("/pnp/WORK-REQUEST", data=b"<pnp>")
         self.assertEqual(bad.status_code, 400)
+        self.assertEqual(bad.get_data(as_text=True), "bad request\n")
+        bad.close()
+        response = client.post("/pnp/WORK-RESPONSE", data=b"<pnp>")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_data(as_text=True), "bad request\n")
+        response.close()
 
     def test_empty_vid_and_slash_in_pid(self):
         udi = "PID:CISCO2921/K9,VID:,SN:FOC1234"
