@@ -1,0 +1,625 @@
+#!/usr/bin/env python3
+"""Drive one isolated Open PnP Server as a device and as the operator."""
+
+import argparse
+import hashlib
+import json
+import os
+import signal
+import socket
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
+import xml.etree.ElementTree as ET
+from pathlib import Path
+from xml.sax.saxutils import escape
+
+SKILL_DIR = Path(__file__).resolve().parents[1]
+REPO = Path(__file__).resolve().parents[4]
+EVIDENCE_ROOT = SKILL_DIR / "evidence"
+DEFAULT_UDI = "PID:C9300-24P,VID:V01,SN:FCW1234"
+SUMMARY_KEYS = (
+    "http",
+    "xmlns",
+    "correlator",
+    "terminate",
+    "callback",
+    "minutes",
+    "location",
+    "apply_to",
+    "reason",
+    "bye",
+    "reload",
+    "noreload",
+)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(prog="pnp-verify")
+    sub = parser.add_subparsers(dest="cmd", required=True)
+
+    launch = sub.add_parser("launch")
+    launch.add_argument("--run", required=True)
+    launch.add_argument("--port", type=int)
+
+    for name in ("doctor", "stop", "cleanup", "hello", "status"):
+        command = sub.add_parser(name)
+        command.add_argument("--run", required=True)
+        if name in {"hello", "status"}:
+            command.add_argument("--save")
+
+    seed_config = sub.add_parser("seed-config")
+    seed_config.add_argument("--run", required=True)
+    seed_config.add_argument("--name", required=True)
+    seed_config.add_argument("--text", required=True)
+
+    seed_image = sub.add_parser("seed-image")
+    seed_image.add_argument("--run", required=True)
+    seed_image.add_argument("--name", required=True)
+    seed_image.add_argument("--text", required=True)
+    seed_image.add_argument("--map", required=True)
+
+    work_request = sub.add_parser("work-request")
+    work_request.add_argument("--run", required=True)
+    work_request.add_argument("--correlator", required=True)
+    work_request.add_argument("--udi", default=DEFAULT_UDI)
+    work_request.add_argument("--auth", choices=("true", "false"), default="false")
+    work_request.add_argument("--save")
+
+    work_response = sub.add_parser("work-response")
+    work_response.add_argument("--run", required=True)
+    work_response.add_argument("--correlator", required=True)
+    work_response.add_argument("--udi", default=DEFAULT_UDI)
+    work_response.add_argument("--xmlns", required=True)
+    work_response.add_argument("--success", choices=("0", "1"), default="1")
+    work_response.add_argument("--hostname", default="")
+    work_response.add_argument("--platform", default="")
+    work_response.add_argument("--version", default="")
+    work_response.add_argument("--save")
+
+    download = sub.add_parser("download")
+    download.add_argument("--run", required=True)
+    download.add_argument("--path", required=True)
+    download.add_argument("--save")
+
+    forget = sub.add_parser("forget")
+    forget.add_argument("--run", required=True)
+    forget.add_argument("--serial", required=True)
+
+    args = parser.parse_args()
+    commands = {
+        "launch": cmd_launch,
+        "doctor": cmd_doctor,
+        "stop": cmd_stop,
+        "cleanup": cmd_cleanup,
+        "hello": cmd_hello,
+        "status": cmd_status,
+        "seed-config": cmd_seed_config,
+        "seed-image": cmd_seed_image,
+        "work-request": cmd_work_request,
+        "work-response": cmd_work_response,
+        "download": cmd_download,
+        "forget": cmd_forget,
+    }
+    return commands[args.cmd](args)
+
+
+def cmd_launch(args) -> int:
+    run = require_scratch_run(args.run)
+    if args.port == 8080:
+        raise SystemExit("refusing port 8080. That is the shared server default.")
+    existing = read_session(run)
+    if existing and pid_alive(existing.get("pid")):
+        raise SystemExit(f"already running pid={existing['pid']} base={existing['base']}")
+    port = args.port or (existing or {}).get("port") or free_port()
+    if port == 8080:
+        raise SystemExit("refusing port 8080. That is the shared server default.")
+    if not port_free(port):
+        raise SystemExit(f"port {port} is already in use")
+    configs = run / "configs"
+    images = run / "sw_images"
+    image_map = run / "image_map"
+    for directory in (configs, images, image_map):
+        directory.mkdir(parents=True, exist_ok=True)
+    state_file = run / "state.json"
+    log_file = run / "server.log"
+    python = ensure_venv()
+    evidence = EVIDENCE_ROOT / run.name
+    evidence.mkdir(parents=True, exist_ok=True)
+    command = [
+        str(python),
+        str(REPO / "main.py"),
+        "--bind",
+        "127.0.0.1",
+        "--ip",
+        "127.0.0.1",
+        "--port",
+        str(port),
+        "--state-file",
+        str(state_file),
+        "--configs-dir",
+        str(configs),
+        "--images-dir",
+        str(images),
+        "--image-map-dir",
+        str(image_map),
+        "--callback-minutes",
+        "1",
+    ]
+    log_handle = log_file.open("ab")
+    process = subprocess.Popen(
+        command,
+        cwd=REPO,
+        stdout=log_handle,
+        stderr=subprocess.STDOUT,
+        env={**os.environ, "PYTHONUNBUFFERED": "1"},
+    )
+    session = {
+        "pid": process.pid,
+        "port": port,
+        "base": f"http://127.0.0.1:{port}",
+        "run_dir": str(run),
+        "state_file": str(state_file),
+        "configs_dir": str(configs),
+        "images_dir": str(images),
+        "image_map_dir": str(image_map),
+        "log_file": str(log_file),
+        "evidence_dir": str(evidence),
+        "main_py": str(REPO / "main.py"),
+    }
+    write_session(session)
+    if not wait_ready(session, process):
+        raise SystemExit(f"server did not become ready. log={log_file}")
+    print(
+        f"launched pid={process.pid} base={session['base']} "
+        f"run={run} evidence={evidence}"
+    )
+    return 0
+
+
+def cmd_doctor(args) -> int:
+    session = require_session(args.run)
+    problems = doctor_problems(session)
+    if problems:
+        print("doctor fail")
+        for problem in problems:
+            print(problem)
+        return 1
+    print(
+        f"doctor ok pid={session['pid']} base={session['base']} "
+        f"state={session['state_file']}"
+    )
+    return 0
+
+
+def cmd_stop(args) -> int:
+    session = require_session(args.run)
+    stop_pid(session)
+    print(f"stopped pid={session.get('pid')} run={session['run_dir']}")
+    return 0
+
+
+def cmd_cleanup(args) -> int:
+    run = Path(args.run).resolve()
+    session_path = run / "session.json"
+    evidence = None
+    if session_path.is_file():
+        session = json.loads(session_path.read_text(encoding="utf-8"))
+        evidence = session.get("evidence_dir")
+        stop_pid(session)
+    if run.is_dir():
+        for child in sorted(run.rglob("*"), reverse=True):
+            if child.is_file() or child.is_symlink():
+                child.unlink()
+            elif child.is_dir():
+                child.rmdir()
+        run.rmdir()
+    if evidence:
+        print(f"cleaned run={run}")
+        print(f"evidence remains {evidence}")
+    else:
+        print(f"cleaned run={run}")
+    return 0
+
+
+def cmd_hello(args) -> int:
+    session = require_session(args.run)
+    root_status, root_body = request(session["base"], "GET", "/")
+    hello_status, hello_body = request(session["base"], "GET", "/pnp/HELLO")
+    root_text = root_body.decode("utf-8", errors="replace").rstrip("\n")
+    print(
+        f"root_http={root_status} root_body={root_text} "
+        f"hello_http={hello_status} hello_body_bytes={len(hello_body)}"
+    )
+    if args.save:
+        payload = (
+            f"root_http={root_status}\n"
+            f"root_body={root_text}\n"
+            f"hello_http={hello_status}\n"
+            f"hello_body_bytes={len(hello_body)}\n"
+        ).encode()
+        print(f"saved {save_evidence(session, args.save, payload)}")
+    ok = (
+        root_status == 200
+        and root_body == b"Open PnP Server\n"
+        and hello_status == 200
+        and hello_body == b""
+    )
+    return 0 if ok else 1
+
+
+def cmd_status(args) -> int:
+    session = require_session(args.run)
+    status, body = request(session["base"], "GET", "/status")
+    text = body.decode("utf-8", errors="replace")
+    print(f"http={status}")
+    print(text)
+    if args.save:
+        print(f"saved {save_evidence(session, args.save, body)}")
+    return 0 if status == 200 else 1
+
+
+def cmd_seed_config(args) -> int:
+    session = require_session(args.run)
+    path = safe_child(Path(session["configs_dir"]), args.name)
+    path.write_text(args.text, encoding="utf-8")
+    print(f"seeded config {path} bytes={path.stat().st_size}")
+    return 0
+
+
+def cmd_seed_image(args) -> int:
+    session = require_session(args.run)
+    image = safe_child(Path(session["images_dir"]), args.name)
+    pointer = safe_child(Path(session["image_map_dir"]), args.map)
+    image.write_text(args.text, encoding="utf-8")
+    pointer.write_text(args.name + "\n", encoding="utf-8")
+    print(f"seeded image {image} map={pointer}")
+    return 0
+
+
+def cmd_work_request(args) -> int:
+    session = require_session(args.run)
+    payload = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        f'<pnp xmlns="urn:cisco:pnp" version="1.0" udi="{escape(args.udi)}">'
+        f'<info xmlns="urn:cisco:pnp:work-info" correlator="{escape(args.correlator)}">'
+        "<deviceId>"
+        f"<udi>{escape(args.udi)}</udi>"
+        f"<authRequired>{args.auth}</authRequired>"
+        "</deviceId></info></pnp>"
+    ).encode()
+    return post_xml(session, "/pnp/WORK-REQUEST", payload, args.save)
+
+
+def cmd_work_response(args) -> int:
+    session = require_session(args.run)
+    extra = profile_xml(args.hostname, args.platform, args.version)
+    payload = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        f'<pnp xmlns="urn:cisco:pnp" version="1.0" udi="{escape(args.udi)}">'
+        f'<response correlator="{escape(args.correlator)}" success="{args.success}" '
+        f'xmlns="{escape(args.xmlns)}">{extra}</response></pnp>'
+    ).encode()
+    return post_xml(session, "/pnp/WORK-RESPONSE", payload, args.save)
+
+
+def cmd_download(args) -> int:
+    session = require_session(args.run)
+    if not (args.path.startswith("/configs/") or args.path.startswith("/images/")):
+        raise SystemExit("download path must start with /configs/ or /images/")
+    status, body = request(session["base"], "GET", args.path)
+    digest = hashlib.sha256(body).hexdigest()
+    text = body.decode("utf-8") if is_text(body) else ""
+    shown = text.replace("\n", "\\n") if text else ""
+    print(f"http={status} bytes={len(body)} sha256={digest} text={shown}")
+    if args.save:
+        print(f"saved {save_evidence(session, args.save, body)}")
+    return 0 if status == 200 else 1
+
+
+def cmd_forget(args) -> int:
+    session = require_session(args.run)
+    if pid_alive(session.get("pid")):
+        raise SystemExit(
+            "stop the server before forget. A live process writes its memory back over the state file."
+        )
+    python = ensure_venv()
+    command = [
+        str(python),
+        str(REPO / "main.py"),
+        "--forget",
+        args.serial,
+        "--ip",
+        "127.0.0.1",
+        "--state-file",
+        session["state_file"],
+        "--configs-dir",
+        session["configs_dir"],
+        "--images-dir",
+        session["images_dir"],
+        "--image-map-dir",
+        session["image_map_dir"],
+    ]
+    completed = subprocess.run(command, cwd=REPO, capture_output=True, text=True, check=False)
+    stdout = completed.stdout.strip()
+    print(f"exit={completed.returncode}")
+    print(f"stdout={stdout}")
+    if completed.stderr.strip():
+        print(completed.stderr.strip(), file=sys.stderr)
+    return completed.returncode
+
+
+def post_xml(session, path, payload, save_name) -> int:
+    status, body = request(
+        session["base"],
+        "POST",
+        path,
+        payload,
+        {"Content-Type": "application/xml"},
+    )
+    if save_name:
+        print(f"saved {save_evidence(session, save_name, body)}")
+        request_name = save_name.rsplit(".", 1)[0] + ".request.xml"
+        print(f"saved {save_evidence(session, request_name, payload)}")
+    if status != 200:
+        print(f"http={status}")
+        print(body.decode("utf-8", errors="replace"))
+        return 1
+    try:
+        summary = summarize(status, body)
+    except ET.ParseError:
+        print(body.decode("utf-8", errors="replace"))
+        return 1
+    print(" ".join(f"{key}={summary[key]}" for key in SUMMARY_KEYS))
+    return 0
+
+
+def summarize(status, body: bytes) -> dict:
+    root = ET.fromstring(body)
+    summary = {key: "" for key in SUMMARY_KEYS}
+    summary["http"] = str(status)
+    summary["terminate"] = "no"
+    summary["callback"] = "no"
+    summary["bye"] = "no"
+    summary["reload"] = "no"
+    summary["noreload"] = "no"
+    for element in root.iter():
+        name = element.tag.rsplit("}", 1)[-1]
+        if name == "request":
+            summary["xmlns"] = xmlns_of(element)
+            summary["correlator"] = element.attrib.get("correlator", "")
+        elif name == "info" and not summary["correlator"]:
+            summary["xmlns"] = xmlns_of(element)
+            summary["correlator"] = element.attrib.get("correlator", "")
+        elif name == "location" and element.text:
+            summary["location"] = element.text.strip()
+        elif name == "terminate":
+            summary["terminate"] = "yes"
+        elif name == "callbackAfter":
+            summary["callback"] = "yes"
+        elif name == "minutes" and element.text:
+            summary["minutes"] = element.text.strip()
+        elif name == "applyTo" and element.text:
+            summary["apply_to"] = element.text.strip()
+        elif name == "reason" and element.text:
+            summary["reason"] = element.text.strip()
+        elif name == "bye":
+            summary["bye"] = "yes"
+        elif name == "reload":
+            summary["reload"] = "yes"
+        elif name == "noReload":
+            summary["noreload"] = "yes"
+    return summary
+
+
+def profile_xml(hostname, platform, version) -> str:
+    if not (hostname or platform or version):
+        return ""
+    return (
+        "<hardwareInfo>"
+        f"<hostname>{escape(hostname)}</hostname>"
+        f"<platformName>{escape(platform)}</platformName>"
+        "</hardwareInfo>"
+        "<imageInfo>"
+        f"<versionString>{escape(version)}</versionString>"
+        "<imageFile>flash:cat9k.bin</imageFile>"
+        "</imageInfo>"
+    )
+
+
+def xmlns_of(element) -> str:
+    if element.tag.startswith("{"):
+        return element.tag.split("}", 1)[0][1:]
+    return ""
+
+
+def doctor_problems(session) -> list:
+    problems = []
+    pid = session.get("pid")
+    if not pid_alive(pid):
+        problems.append(f"pid {pid} is not running")
+        return problems
+    command = proc_args(pid)
+    expected = [
+        session["main_py"],
+        "--port",
+        str(session["port"]),
+        "--state-file",
+        session["state_file"],
+        "--bind",
+        "127.0.0.1",
+    ]
+    missing = [item for item in expected if item not in command]
+    if missing:
+        problems.append("process command line does not match this session: " + " ".join(missing))
+    log_text = Path(session["log_file"]).read_text(encoding="utf-8", errors="replace")
+    ready_line = f"listening on 127.0.0.1:{session['port']} advertising {session['base']}"
+    if ready_line not in log_text:
+        problems.append(f"log is missing {ready_line}")
+    try:
+        status, body = request(session["base"], "GET", "/")
+    except OSError as exc:
+        problems.append(f"GET / failed: {exc}")
+        return problems
+    if status != 200 or body != b"Open PnP Server\n":
+        problems.append(f"GET / returned {status} {body!r}")
+    hello_status, hello_body = request(session["base"], "GET", "/pnp/HELLO")
+    if hello_status != 200 or hello_body != b"":
+        problems.append(f"GET /pnp/HELLO returned {hello_status} bytes={len(hello_body)}")
+    status_code, status_body = request(session["base"], "GET", "/status")
+    try:
+        parsed = json.loads(status_body)
+    except json.JSONDecodeError:
+        parsed = None
+    if status_code != 200 or not isinstance(parsed, list):
+        problems.append(f"GET /status returned {status_code}")
+    return problems
+
+
+def wait_ready(session, process) -> bool:
+    deadline = time.time() + 20
+    ready_line = f"listening on 127.0.0.1:{session['port']} advertising {session['base']}"
+    while time.time() < deadline:
+        if process.poll() is not None:
+            return False
+        log_text = Path(session["log_file"]).read_text(encoding="utf-8", errors="replace")
+        if ready_line in log_text:
+            try:
+                status, body = request(session["base"], "GET", "/")
+            except OSError:
+                status, body = 0, b""
+            if status == 200 and body == b"Open PnP Server\n":
+                return True
+        time.sleep(0.1)
+    return False
+
+
+def ensure_venv() -> Path:
+    python = REPO / ".venv" / "bin" / "python"
+    if not python.is_file():
+        subprocess.check_call([sys.executable, "-m", "venv", str(REPO / ".venv")])
+    probe = subprocess.run(
+        [str(python), "-c", "import flask, xmltodict"],
+        capture_output=True,
+        check=False,
+    )
+    if probe.returncode != 0:
+        subprocess.check_call(
+            [str(python), "-m", "pip", "install", "Flask==3.1.3", "xmltodict==1.0.4"]
+        )
+    return python
+
+
+def request(base, method, path, data=None, headers=None):
+    req = urllib.request.Request(base + path, data=data, method=method, headers=headers or {})
+    try:
+        with urllib.request.urlopen(req, timeout=5) as response:
+            return response.status, response.read()
+    except urllib.error.HTTPError as exc:
+        return exc.code, exc.read()
+
+
+def save_evidence(session, name, payload: bytes) -> Path:
+    path = safe_child(Path(session["evidence_dir"]), name)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(payload)
+    return path
+
+
+def safe_child(directory: Path, name: str) -> Path:
+    if not name or name != Path(name).name or name in {".", ".."}:
+        raise SystemExit(f"refusing path {name}")
+    return directory / name
+
+
+def require_scratch_run(value: str) -> Path:
+    run = Path(value).resolve()
+    repo = REPO.resolve()
+    if run == repo or repo in run.parents:
+        raise SystemExit(f"refusing run dir inside the repo: {run}")
+    run.mkdir(parents=True, exist_ok=True)
+    return run
+
+
+def require_session(value: str) -> dict:
+    run = Path(value).resolve()
+    path = run / "session.json"
+    if not path.is_file():
+        raise SystemExit(f"no session at {path}. Run launch first.")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def read_session(run: Path):
+    path = run / "session.json"
+    if not path.is_file():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def write_session(session) -> None:
+    path = Path(session["run_dir"]) / "session.json"
+    path.write_text(json.dumps(session, indent=2) + "\n", encoding="utf-8")
+
+
+def stop_pid(session) -> None:
+    pid = session.get("pid")
+    if not pid_alive(pid):
+        session["pid"] = 0
+        write_session(session)
+        return
+    os.kill(pid, signal.SIGTERM)
+    deadline = time.time() + 5
+    while time.time() < deadline and pid_alive(pid):
+        time.sleep(0.1)
+    if pid_alive(pid):
+        os.kill(pid, signal.SIGKILL)
+        time.sleep(0.1)
+    session["pid"] = 0
+    write_session(session)
+
+
+def pid_alive(pid) -> bool:
+    if not pid:
+        return False
+    stat = Path(f"/proc/{pid}/stat")
+    if not stat.is_file():
+        return False
+    state = stat.read_text(encoding="utf-8").rsplit(")", 1)[-1].split()[0]
+    return state != "Z"
+
+
+def proc_args(pid) -> list:
+    raw = Path(f"/proc/{pid}/cmdline").read_bytes().split(b"\0")
+    return [part.decode() for part in raw if part]
+
+
+def free_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+
+
+def port_free(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        try:
+            sock.bind(("127.0.0.1", port))
+        except OSError:
+            return False
+    return True
+
+
+def is_text(body: bytes) -> bool:
+    try:
+        text = body.decode("utf-8")
+    except UnicodeDecodeError:
+        return False
+    return "\x00" not in text
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except urllib.error.URLError as exc:
+        raise SystemExit(f"request failed: {exc}") from exc

@@ -2,6 +2,7 @@
 __pycache__
 .github
 env
+.venv
 state.json
 state.json.tmp
 # exclude
