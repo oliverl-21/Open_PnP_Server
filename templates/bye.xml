@@ -1,4 +1,5 @@
-<pnp xmlns="urn:cisco:pnp" version="1.0" udi="{{ udi }}">
+<?xml version="1.0" encoding="UTF-8"?>
+<pnp xmlns="urn:cisco:pnp" version="1.0" udi="{{ udi }}"{% if usr %} usr="{{ usr }}" pwd="{{ pwd }}"{% endif %}>
   <info xmlns="urn:cisco:pnp:work-info" correlator="{{ correlator_id }}">
     <workInfo>
       <bye/>

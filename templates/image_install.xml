@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pnp xmlns="urn:cisco:pnp" version="1.0" udi="{{ udi }}"{% if usr %} usr="{{ usr }}" pwd="{{ pwd }}"{% endif %}>
+  <request correlator="{{ correlator_id }}" xmlns="urn:cisco:pnp:image-install">
+    <image>
+      <copy>
+        <source>
+          <location>{{ file_base }}/images/{{ image_filename }}</location>
+          {% if checksum %}<checksum>{{ checksum }}</checksum>{% endif %}
+        </source>
+      </copy>
+    </image>
+    <reload>
+      <reason>pnp image installation</reason>
+      <delayIn>0</delayIn>
+    </reload>
+  </request>
+</pnp>

@@ -1,13 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<pnp xmlns="urn:cisco:pnp" version="1.0" udi="{{ udi }}">
+<pnp xmlns="urn:cisco:pnp" version="1.0" udi="{{ udi }}"{% if usr %} usr="{{ usr }}" pwd="{{ pwd }}"{% endif %}>
   <request correlator="{{ correlator_id }}" xmlns="urn:cisco:pnp:config-upgrade">
     <config details="all">
       <copy>
         <source>
-		      <location>http://{{ http_server }}/configs/{{ config_filename }}.cfg</location>
+          <location>{{ file_base }}/configs/{{ config_filename }}</location>
+          {% if checksum %}<checksum>{{ checksum }}</checksum>{% endif %}
         </source>
+        <applyTo>{{ apply_to }}</applyTo>
+        {% if abort_on_syntax_fault %}<abortOnSyntaxFault/>{% endif %}
       </copy>
     </config>
+    {% if reload %}
+    <reload>
+      <reason>pnp config upgrade</reason>
+      <delayIn>0</delayIn>
+      {% if save_config %}<saveConfig>true</saveConfig>{% endif %}
+    </reload>
+    {% else %}
     <noReload/>
+    {% endif %}
   </request>
 </pnp>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pnp xmlns="urn:cisco:pnp" version="1.0" udi="{{ udi }}"{% if usr %} usr="{{ usr }}" pwd="{{ pwd }}"{% endif %}>
+  <request xmlns="urn:cisco:pnp:backoff" correlator="{{ correlator_id }}">
+    <backoff>
+      <reason>{{ reason }}</reason>
+      {% if mode == "terminate" %}
+      <terminate/>
+      {% else %}
+      <callbackAfter>
+        {% if hours %}<hours>{{ hours }}</hours>{% endif %}
+        <minutes>{{ minutes }}</minutes>
+      </callbackAfter>
+      {% endif %}
+    </backoff>
+  </request>
+</pnp>
