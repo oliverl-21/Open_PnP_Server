@@ -11,7 +11,7 @@ Image install lets a device download a mapped image and see a reload request bef
 
 ## How to get to it (user POV)
 
-- The operator writes an image file and a one-line map named for the serial.
+- The operator writes an image file and a one-line map named for the serial, or for the pid when that serial map is absent.
 - The device answers device-info, then receives the image offer and downloads it.
 - The device answers the image job and, with no config file yet, is told to call back.
 
@@ -34,5 +34,6 @@ Preconditions:
 ## Gotchas
 
 - The map file is `<serial>.txt` and its first non-comment line is the image filename. A map that names a missing file produces backoff instead of an image offer.
+- `image_map/<pid>.txt` is used when the serial map is absent. The serial file wins when both exist. The fixture pid map is `C9300-24P.txt`.
 - Image install is offered before config. Seeding a config does not skip the image when the map exists.
 - The image offer always includes reload. `noreload=yes` on this response means the server offered config, not image.
