@@ -72,7 +72,7 @@ Sequences for each feature are in `features/`. A pass that drives one entry poin
 
 Proof files go to the `evidence=` directory printed by launch. That path is `.cursor/skills/verify-open-pnp/evidence/<run-name>/`. Cleanup never deletes it.
 
-Capture the posted request, the XML response, and the side effect. For a config offer, the side effect is the downloaded file bytes and a later `GET /status` row whose `state` is `done`. For an image offer, the side effect is the downloaded image bytes. For forget, the side effect is the next work request after relaunch, which must not be terminate for that serial.
+Capture the posted request, the XML response, and the side effect. For a config offer, the side effect is the downloaded file bytes. `GET /status` shows `done` after the device accepts that config. A download before that acceptance leaves the serial waiting. For an image offer, the side effect is the downloaded image bytes. For forget, the side effect is the next work request after relaunch, which must not be terminate for that serial.
 
 Do not point the server at a mock device. The helper posts the same messages a device posts, to the real routes.
 
